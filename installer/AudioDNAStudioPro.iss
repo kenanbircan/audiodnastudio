@@ -1,5 +1,5 @@
 #define MyAppName "Audio DNA Studio Pro"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.3.0"
 #define MyAppPublisher "Audio DNA Studio Pro"
 #define MyAppExeName "AudioDNAStudioPro.exe"
 
@@ -15,7 +15,7 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\release
-OutputBaseFilename=AudioDNAStudioPro_Setup_1.1.0
+OutputBaseFilename=AudioDNAStudioPro_Setup_1.3.0
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
