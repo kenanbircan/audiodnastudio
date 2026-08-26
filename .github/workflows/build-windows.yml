@@ -52,7 +52,7 @@ jobs:
       - name: Verify embedded stdio guard
         shell: pwsh
         run: |
-          python -c "from pathlib import Path; s=Path('app.py').read_text(encoding='utf-8'); assert '_ensure_stdio()' in s and 'sys.stdout' in s or '_stdio_sys' in s; print('Embedded stdio guard OK')"
+          python -c "from pathlib import Path; s=Path('app.py').read_text(encoding='utf-8'); assert '_ensure_stdio()' in s and ('sys.stdout' in s or '_stdio_sys' in s); print('Embedded stdio guard OK')"
 
       - name: Build Windows executable
         run: python -m PyInstaller --noconfirm --clean AudioDNAStudioPro.spec
@@ -65,8 +65,11 @@ jobs:
       - name: Packaged dependency self-check
         shell: pwsh
         run: |
-          & "dist\AudioDNAStudioPro\AudioDNAStudioPro.exe" --self-check
-          if ($LASTEXITCODE -ne 0) { throw "Packaged EXE dependency self-check failed with exit code $LASTEXITCODE" }
+          $proc = Start-Process -FilePath "dist\AudioDNAStudioPro\AudioDNAStudioPro.exe" -ArgumentList "--self-check" -Wait -PassThru
+          if ($proc.ExitCode -ne 0) {
+            throw "Packaged EXE dependency self-check failed with exit code $($proc.ExitCode)"
+          }
+          Write-Host "Packaged EXE self-check passed with exit code 0"
 
       - name: Install Inno Setup
         shell: pwsh
