@@ -44,6 +44,11 @@ jobs:
         run: |
           python -c "import demucs; from demucs.separate import main; print('Demucs import OK')"
 
+      - name: Verify download dependencies
+        shell: pwsh
+        run: |
+          python -c "import requests, certifi; print('Requests/certifi OK:', certifi.where())"
+
       - name: Build Windows executable
         run: python -m PyInstaller --noconfirm --clean AudioDNAStudioPro.spec
 
