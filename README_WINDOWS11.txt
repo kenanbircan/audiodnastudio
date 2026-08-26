@@ -37,7 +37,7 @@ FIRST BUILD ON WINDOWS 11
      dist\AudioDNAStudioPro\AudioDNAStudioPro.exe
 
 If Inno Setup 6 is installed, it also creates:
-     release\AudioDNAStudioPro_Setup_1.0.0.exe
+     release\AudioDNAStudioPro_Setup_1.1.0.exe
 
 The EXE contains the application and Python dependencies, including a packaged
 FFmpeg binary via imageio-ffmpeg. AI checkpoint files are intentionally stored
@@ -80,3 +80,12 @@ WINDOWS EXE BUILD NOTE
 ----------------------
 PyInstaller must run on Windows to create a Windows executable. The project
 contains the complete Windows build configuration and installer definition.
+
+V1.1 BS-ROFORMER FIX
+--------------------
+The v1.0 build incorrectly checked for BSRoformerSession, which is not in the
+released bs-roformer-infer 0.1.5 API. v1.1 uses the released inference entry:
+  from bs_roformer.inference import proc_folder
+
+The GitHub workflow now verifies BS-RoFormer before packaging and runs a
+packaged dependency self-check after PyInstaller.

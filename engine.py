@@ -56,7 +56,9 @@ class StemEngine:
         self._set_model_env()
         ffmpeg = bundled_ffmpeg()
         try:
-            from bs_roformer import BSRoformerSession  # noqa
+            import bs_roformer  # noqa: F401
+            from bs_roformer.inference import proc_folder  # noqa: F401
+            from bs_roformer import DEFAULT_MODEL, ensure_model_assets  # noqa: F401
             roformer = True
         except Exception:
             roformer = False
@@ -183,14 +185,22 @@ class StemEngine:
         store_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(normalized, input_dir / normalized.name)
 
-        progress(5, "Loading BS‑RoFormer session…")
+        progress(5, "Loading BS‑RoFormer 0.1.5 inference engine…")
         try:
             import torch
-            from bs_roformer import BSRoformerSession
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            with BSRoformerSession(device=device) as session:
-                progress(15, f"BS‑RoFormer running on {device.upper()}…")
-                session.infer(str(input_dir), store_dir=str(store_dir))
+            from bs_roformer.inference import proc_folder
+            device = "cuda:0" if torch.cuda.is_available() else "cpu"
+            progress(12, f"BS‑RoFormer running on {device.upper()}…")
+            proc_folder([
+                "--input_folder", str(input_dir),
+                "--store_dir", str(store_dir),
+                "--models_dir", str(self.roformer_models),
+                "--device", device,
+            ])
+        except SystemExit as exc:
+            code = int(getattr(exc, "code", 1) or 0)
+            if code != 0:
+                raise EngineError(f"BS‑RoFormer exited with code {code}") from exc
         except Exception as exc:
             raise EngineError(f"BS‑RoFormer inference failed: {exc}") from exc
 

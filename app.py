@@ -312,10 +312,10 @@ class AudioDNAStudio(QMainWindow):
             QMessageBox.critical(self, "Missing FFmpeg", "FFmpeg is required. See README.txt.")
             return
         if mode in ("maximum", "roformer") and not info["roformer"]:
-            QMessageBox.critical(self, "Missing BS‑RoFormer", "Run SETUP_WINDOWS.bat first.")
+            QMessageBox.critical(self, "BS‑RoFormer unavailable", "Open Diagnostics / Log and click Download / Verify AI Models. If it still shows MISSING, install the corrected v1.1 build.")
             return
         if mode in ("maximum", "demucs") and not info["demucs"]:
-            QMessageBox.critical(self, "Missing Demucs", "Run SETUP_WINDOWS.bat first.")
+            QMessageBox.critical(self, "Demucs unavailable", "Open Diagnostics / Log and click Download / Verify AI Models.")
             return
 
         self.project_dir = PROJECTS_DIR / self.source_file.stem
@@ -514,8 +514,9 @@ def main():
     if "--self-check" in sys.argv:
         import json
         engine = StemEngine(APP_DIR)
-        print(json.dumps(engine.system_info(), indent=2))
-        return 0
+        info = engine.system_info()
+        print(json.dumps(info, indent=2))
+        return 0 if info.get("ready") else 2
     app = QApplication(sys.argv)
     app.setApplicationName("Audio DNA Studio Pro")
     win = AudioDNAStudio()
