@@ -34,6 +34,16 @@ jobs:
       - name: Syntax check
         run: python -m py_compile app.py engine.py
 
+      - name: Verify BS-RoFormer released API
+        shell: pwsh
+        run: |
+          python -c "import bs_roformer; from bs_roformer.inference import proc_folder; from bs_roformer import DEFAULT_MODEL, ensure_model_assets; print('BS-RoFormer import OK:', DEFAULT_MODEL)"
+
+      - name: Verify Demucs API
+        shell: pwsh
+        run: |
+          python -c "import demucs; from demucs.separate import main; print('Demucs import OK')"
+
       - name: Build Windows executable
         run: python -m PyInstaller --noconfirm --clean AudioDNAStudioPro.spec
 
@@ -41,6 +51,12 @@ jobs:
         shell: pwsh
         run: |
           if (!(Test-Path "dist\AudioDNAStudioPro\AudioDNAStudioPro.exe")) { throw "EXE missing" }
+
+      - name: Packaged dependency self-check
+        shell: pwsh
+        run: |
+          & "dist\AudioDNAStudioPro\AudioDNAStudioPro.exe" --self-check
+          if ($LASTEXITCODE -ne 0) { throw "Packaged EXE dependency self-check failed with exit code $LASTEXITCODE" }
 
       - name: Install Inno Setup
         shell: pwsh
