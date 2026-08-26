@@ -217,12 +217,15 @@ class AudioDNAStudio(QMainWindow):
         refresh.clicked.connect(self._refresh_system_status)
         download_models = QPushButton("Download / Verify AI Models")
         download_models.clicked.connect(self.download_models)
+        import_roformer = QPushButton("Import BS-RoFormer Checkpoint")
+        import_roformer.clicked.connect(self.import_roformer_checkpoint)
         models = QPushButton("Open Models Folder")
         models.clicked.connect(self.open_models_folder)
         projects = QPushButton("Open Projects Folder")
         projects.clicked.connect(self.open_projects_folder)
         diag_actions.addWidget(refresh)
         diag_actions.addWidget(download_models)
+        diag_actions.addWidget(import_roformer)
         diag_actions.addWidget(models)
         diag_actions.addWidget(projects)
         diag_actions.addStretch()
@@ -266,7 +269,9 @@ class AudioDNAStudio(QMainWindow):
         lines = [
             f"Python: {info['python']}",
             f"FFmpeg: {'OK' if info['ffmpeg'] else 'MISSING'}",
-            f"BS‑RoFormer: {'OK' if info['roformer'] else 'MISSING'}",
+            f"BS‑RoFormer engine: {'OK' if info['roformer'] else 'MISSING'}",
+            f"BS‑RoFormer checkpoint: {'OK' if info.get('roformer_checkpoint') else 'MISSING / INVALID'}",
+            f"Checkpoint path: {info.get('roformer_checkpoint_path','')}",
             f"Demucs: {'OK' if info['demucs'] else 'MISSING'}",
             f"PyTorch: {'OK' if info['torch'] else 'MISSING'}",
             f"CUDA GPU: {info['cuda_name'] if info['cuda'] else 'CPU mode / CUDA not detected'}",
@@ -275,6 +280,22 @@ class AudioDNAStudio(QMainWindow):
         ]
         self.status_label.setText("\n".join(lines))
         self.log.appendPlainText("\n".join(lines) + "\n")
+
+    def import_roformer_checkpoint(self):
+        file, _ = QFileDialog.getOpenFileName(self, "Select BS-RoFormer Checkpoint", "", "BS-RoFormer Checkpoint (*.ckpt);;All Files (*.*)")
+        if not file: return
+        try:
+            self.progress.setValue(10)
+            self.progress_text.setText("Verifying checkpoint SHA-256…")
+            result = self.engine.import_roformer_checkpoint(Path(file))
+            self.progress.setValue(100)
+            self.progress_text.setText("BS-RoFormer checkpoint verified.")
+            self.log.appendPlainText("Imported BS-RoFormer checkpoint:\n" + result.get("path", "") + "\nSHA-256: " + result.get("sha256", ""))
+            self._refresh_system_status()
+            QMessageBox.information(self, "Checkpoint ready", "BS-RoFormer checkpoint was SHA-256 verified and installed locally.")
+        except Exception as exc:
+            self.progress_text.setText("Checkpoint import failed.")
+            QMessageBox.critical(self, "Checkpoint import failed", str(exc))
 
     def download_models(self):
         self.progress.setValue(0)
@@ -312,7 +333,10 @@ class AudioDNAStudio(QMainWindow):
             QMessageBox.critical(self, "Missing FFmpeg", "FFmpeg is required. See README.txt.")
             return
         if mode in ("maximum", "roformer") and not info["roformer"]:
-            QMessageBox.critical(self, "BS‑RoFormer unavailable", "Open Diagnostics / Log and click Download / Verify AI Models. If it still shows MISSING, install the corrected v1.1 build.")
+            QMessageBox.critical(self, "BS‑RoFormer engine unavailable", "This build cannot import the BS-RoFormer engine.")
+            return
+        if mode in ("maximum", "roformer") and not info.get("roformer_checkpoint"):
+            QMessageBox.critical(self, "BS‑RoFormer checkpoint missing", "Open Diagnostics / Log and click Download / Verify AI Models. If automatic download fails, download BS-Rofo-SW-Fixed.ckpt in your browser and click Import BS-RoFormer Checkpoint.")
             return
         if mode in ("maximum", "demucs") and not info["demucs"]:
             QMessageBox.critical(self, "Demucs unavailable", "Open Diagnostics / Log and click Download / Verify AI Models.")

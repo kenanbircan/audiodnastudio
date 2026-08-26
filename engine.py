@@ -5,6 +5,7 @@ import sys
 import math
 import shutil
 import subprocess
+import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -13,6 +14,12 @@ import soundfile as sf
 
 class EngineError(RuntimeError):
     pass
+
+ROFORMER_SLUG = "roformer-model-bs-roformer-sw-by-jarredou"
+ROFORMER_FILENAME = "BS-Rofo-SW-Fixed.ckpt"
+ROFORMER_URL = "https://huggingface.co/enerjazzer/BS-ROFO-SW-Fixed/resolve/main/BS-Rofo-SW-Fixed.ckpt"
+ROFORMER_SHA256 = "24e7d35ee9c64415673d3fd33e06a67cac2c103c5df6267ba1576459c775916e"
+ROFORMER_SIZE = 699_412_152
 
 
 def user_data_root() -> Path:
@@ -51,6 +58,94 @@ class StemEngine:
         os.environ["BS_ROFORMER_MODELS_PATH"] = str(self.roformer_models)
         os.environ["TORCH_HOME"] = str(self.demucs_models)
         os.environ["XDG_CACHE_HOME"] = str(self.models_dir)
+        try:
+            import certifi
+            os.environ["SSL_CERT_FILE"] = certifi.where()
+            os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
+        except Exception:
+            pass
+
+    @property
+    def roformer_checkpoint_path(self) -> Path:
+        return self.roformer_models / ROFORMER_SLUG / ROFORMER_FILENAME
+
+    def _sha256_file(self, path: Path) -> str:
+        h = hashlib.sha256()
+        with Path(path).open("rb") as fh:
+            for chunk in iter(lambda: fh.read(8 * 1024 * 1024), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    def verify_roformer_checkpoint(self, path: Path | None = None) -> dict:
+        path = Path(path or self.roformer_checkpoint_path)
+        if not path.exists():
+            return {"ok": False, "reason": "missing", "path": str(path)}
+        size = path.stat().st_size
+        if size != ROFORMER_SIZE:
+            return {"ok": False, "reason": "size_mismatch", "path": str(path), "size": size, "expected_size": ROFORMER_SIZE}
+        digest = self._sha256_file(path)
+        return {"ok": digest.lower() == ROFORMER_SHA256.lower(), "reason": "ok" if digest.lower() == ROFORMER_SHA256.lower() else "sha256_mismatch", "path": str(path), "size": size, "sha256": digest, "expected_sha256": ROFORMER_SHA256}
+
+    def import_roformer_checkpoint(self, source: Path) -> dict:
+        source = Path(source)
+        if not source.exists():
+            raise EngineError("Selected checkpoint file does not exist.")
+        if source.stat().st_size != ROFORMER_SIZE:
+            raise EngineError(f"Wrong checkpoint size: {source.stat().st_size:,} bytes. Expected {ROFORMER_SIZE:,} bytes.")
+        digest = self._sha256_file(source)
+        if digest.lower() != ROFORMER_SHA256.lower():
+            raise EngineError(f"Checkpoint SHA-256 verification failed. Expected {ROFORMER_SHA256}, got {digest}.")
+        target = self.roformer_checkpoint_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix('.ckpt.importing')
+        shutil.copy2(source, tmp)
+        tmp.replace(target)
+        return self.verify_roformer_checkpoint(target)
+
+    def _download_roformer_checkpoint_direct(self, progress=None) -> Path:
+        self._set_model_env()
+        target = self.roformer_checkpoint_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix('.ckpt.part')
+        try:
+            import requests
+        except Exception as exc:
+            raise EngineError("Python requests package is unavailable in this build.") from exc
+        headers = {"User-Agent": "AudioDNAStudioPro/1.2"}
+        downloaded = tmp.stat().st_size if tmp.exists() else 0
+        if downloaded > ROFORMER_SIZE:
+            tmp.unlink(missing_ok=True); downloaded = 0
+        if downloaded:
+            headers["Range"] = f"bytes={downloaded}-"
+        try:
+            with requests.get(ROFORMER_URL, stream=True, timeout=(20,120), headers=headers, allow_redirects=True) as response:
+                if response.status_code == 416:
+                    tmp.unlink(missing_ok=True)
+                    return self._download_roformer_checkpoint_direct(progress)
+                if response.status_code not in (200,206):
+                    raise EngineError(f"Checkpoint host returned HTTP {response.status_code}: {response.text[:300]}")
+                if response.status_code == 200 and downloaded:
+                    tmp.unlink(missing_ok=True); downloaded = 0
+                mode = 'ab' if response.status_code == 206 and downloaded else 'wb'
+                with tmp.open(mode) as fh:
+                    current = downloaded
+                    for chunk in response.iter_content(chunk_size=4*1024*1024):
+                        if not chunk: continue
+                        fh.write(chunk); current += len(chunk)
+                        if progress:
+                            progress(min(95, int(current/ROFORMER_SIZE*95)), f"BS-RoFormer checkpoint {current/1024/1024:.0f} / {ROFORMER_SIZE/1024/1024:.0f} MB")
+        except EngineError:
+            raise
+        except Exception as exc:
+            raise EngineError("Could not download the BS-RoFormer checkpoint. Download it in your browser and use Import BS-RoFormer Checkpoint. Details: " + str(exc)) from exc
+        if tmp.stat().st_size != ROFORMER_SIZE:
+            raise EngineError(f"Checkpoint download incomplete: {tmp.stat().st_size:,} bytes; expected {ROFORMER_SIZE:,}.")
+        digest = self._sha256_file(tmp)
+        if digest.lower() != ROFORMER_SHA256.lower():
+            tmp.unlink(missing_ok=True)
+            raise EngineError("Downloaded checkpoint failed SHA-256 verification; corrupt file removed.")
+        tmp.replace(target)
+        return target
 
     def system_info(self):
         self._set_model_env()
@@ -76,11 +171,14 @@ class StemEngine:
             torch_ok = False
             cuda = False
             cuda_name = ""
+        checkpoint = self.verify_roformer_checkpoint()
         return {
             "python": sys.version.split()[0],
             "ffmpeg": bool(ffmpeg),
             "ffmpeg_path": ffmpeg or "",
             "roformer": roformer,
+            "roformer_checkpoint": checkpoint.get("ok", False),
+            "roformer_checkpoint_path": checkpoint.get("path", str(self.roformer_checkpoint_path)),
             "demucs": demucs_ok,
             "torch": torch_ok,
             "cuda": cuda,
@@ -92,28 +190,43 @@ class StemEngine:
 
     def download_models(self, progress=None):
         self._set_model_env()
-        def report(p, m):
-            if progress:
-                progress(int(p), str(m))
-
-        report(5, "Checking BS‑RoFormer model…")
+        def report(p,m):
+            if progress: progress(int(p), str(m))
+        report(2, "Checking BS-RoFormer checkpoint cache…")
+        check = self.verify_roformer_checkpoint()
+        if not check["ok"]:
+            report(5, "BS-RoFormer checkpoint missing; trying package downloader…")
+            package_error = None
+            try:
+                from bs_roformer import DEFAULT_MODEL, ensure_model_assets
+                ckpt, cfg = ensure_model_assets(DEFAULT_MODEL, models_dir=self.roformer_models)
+                check = self.verify_roformer_checkpoint(Path(ckpt))
+            except Exception as exc:
+                package_error = str(exc)
+                check = self.verify_roformer_checkpoint()
+            if not check["ok"]:
+                report(8, "Package downloader failed; trying resumable direct download…")
+                try:
+                    ckpt = self._download_roformer_checkpoint_direct(lambda p,m: report(8 + int(p*0.48), m))
+                    check = self.verify_roformer_checkpoint(ckpt)
+                except Exception as direct_exc:
+                    raise EngineError("BS-RoFormer checkpoint download failed.\n\nDownload BS-Rofo-SW-Fixed.ckpt in your browser, then use Diagnostics / Log -> Import BS-RoFormer Checkpoint.\n\nPackage downloader: " + (package_error or "not available") + "\nDirect downloader: " + str(direct_exc)) from direct_exc
+        if not check["ok"]:
+            raise EngineError("BS-RoFormer checkpoint is not valid after download.")
+        report(58, "BS-RoFormer checkpoint verified.")
         try:
             from bs_roformer import DEFAULT_MODEL, ensure_model_assets
             ckpt, cfg = ensure_model_assets(DEFAULT_MODEL, models_dir=self.roformer_models)
-            report(55, f"BS‑RoFormer ready: {Path(ckpt).name}")
         except Exception as exc:
-            raise EngineError(f"BS‑RoFormer model download failed: {exc}") from exc
-
-        report(60, "Checking Demucs htdemucs_ft model…")
+            raise EngineError(f"BS-RoFormer config resolution failed: {exc}") from exc
+        report(62, "Checking Demucs htdemucs_ft model…")
         try:
             from demucs.pretrained import get_model
-            # Demucs honours TORCH_HOME/XDG_CACHE_HOME set above.
             get_model("htdemucs_ft")
             report(100, "All neural model files are ready for offline use.")
         except Exception as exc:
             raise EngineError(f"Demucs model download failed: {exc}") from exc
-
-        return {"roformer_checkpoint": str(ckpt), "roformer_config": str(cfg)}
+        return {"roformer_checkpoint": str(ckpt), "roformer_config": str(cfg), "checkpoint_sha256": ROFORMER_SHA256}
 
     def separate(self, source, project_dir=None, mode="maximum", cleanup="strong", progress=None):
         self._set_model_env()

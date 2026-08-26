@@ -5,7 +5,7 @@ datas = []
 binaries = []
 hiddenimports = []
 
-for pkg in ("bs_roformer", "demucs", "imageio_ffmpeg", "soundfile", "scipy"):
+for pkg in ("bs_roformer", "demucs", "imageio_ffmpeg", "soundfile", "scipy", "requests", "certifi"):
     try:
         d, b, h = collect_all(pkg)
         datas += d
@@ -14,7 +14,7 @@ for pkg in ("bs_roformer", "demucs", "imageio_ffmpeg", "soundfile", "scipy"):
     except Exception:
         pass
 
-for dist in ("bs-roformer-infer", "demucs", "torch", "torchaudio", "PySide6", "imageio-ffmpeg"):
+for dist in ("bs-roformer-infer", "demucs", "torch", "torchaudio", "PySide6", "imageio-ffmpeg", "requests", "certifi"):
     try:
         datas += copy_metadata(dist)
     except Exception:

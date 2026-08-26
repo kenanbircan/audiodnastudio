@@ -89,3 +89,13 @@ released bs-roformer-infer 0.1.5 API. v1.1 uses the released inference entry:
 
 The GitHub workflow now verifies BS-RoFormer before packaging and runs a
 packaged dependency self-check after PyInstaller.
+
+
+V1.2 CHECKPOINT DOWNLOAD FIX
+----------------------------
+Automatic model setup now tries the package downloader, then a resumable HTTPS download using requests + certifi. If that is blocked, use Diagnostics / Log -> Import BS-RoFormer Checkpoint.
+
+Expected file: BS-Rofo-SW-Fixed.ckpt
+Expected size: 699,412,152 bytes
+Expected SHA-256: 24e7d35ee9c64415673d3fd33e06a67cac2c103c5df6267ba1576459c775916e
+Expected local path: %LOCALAPPDATA%\AudioDNAStudioPro\models\roformer\roformer-model-bs-roformer-sw-by-jarredou\BS-Rofo-SW-Fixed.ckpt
