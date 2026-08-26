@@ -1,0 +1,10 @@
+PySide6>=6.8,<7
+numpy>=1.26
+soundfile>=0.12
+scipy>=1.12
+imageio-ffmpeg>=0.6
+bs-roformer-infer==0.1.5
+demucs>=4.1.0
+torch
+torchaudio
+pyinstaller>=6.22

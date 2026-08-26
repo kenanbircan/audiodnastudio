@@ -1,0 +1,18 @@
+OPEN-SOURCE MODEL / ENGINE NOTES
+
+This application is a desktop orchestration and studio layer.
+
+BS-RoFormer-Infer:
+- Package: bs-roformer-infer
+- License reported by its PyPI project: MIT
+- Recommended default model supports 6-stem separation.
+
+Demucs:
+- Package: demucs
+- License reported by its PyPI project: MIT
+- htdemucs_ft is the fine-tuned 4-source Hybrid Transformer Demucs model.
+
+Review the licenses shipped by installed third-party packages and model checkpoints
+before redistributing a packaged executable or model weights.
+
+PyInstaller is used only for application packaging and is not part of the inference models.
