@@ -1,1 +1,61 @@
+name: Build Windows 11 Release
 
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "app.py"
+      - "engine.py"
+      - "requirements.txt"
+      - "AudioDNAStudioPro.spec"
+      - "installer/**"
+      - "assets/**"
+      - ".github/workflows/build-windows.yml"
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+
+      - name: Syntax check
+        run: python -m py_compile app.py engine.py
+
+      - name: Build Windows executable
+        run: python -m PyInstaller --noconfirm --clean AudioDNAStudioPro.spec
+
+      - name: Verify executable exists
+        shell: pwsh
+        run: |
+          if (!(Test-Path "dist\AudioDNAStudioPro\AudioDNAStudioPro.exe")) { throw "EXE missing" }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "installer\AudioDNAStudioPro.iss"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AudioDNAStudioPro-Windows11
+          path: |
+            dist/AudioDNAStudioPro/**
+            release/*.exe
+          retention-days: 14
