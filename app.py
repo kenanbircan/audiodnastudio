@@ -81,7 +81,7 @@ class ExtractThread(QThread):
 class AudioDNAStudio(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Audio DNA Studio Pro — Offline Desktop")
+        self.setWindowTitle("Audio DNA Studio Pro v1.4 — Offline Desktop")
         self.resize(1320, 860)
 
         self.engine = StemEngine(APP_DIR)

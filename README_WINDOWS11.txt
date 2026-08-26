@@ -110,3 +110,20 @@ V1.3 NONETYPE.WRITE / INFERENCE FIX
   passes --model_path and --config_path explicitly, so inference cannot silently
   enter the checkpoint downloader.
 - Fixes: AttributeError: 'NoneType' object has no attribute 'write'.
+
+
+V1.4 GITHUB BUILD FIX
+---------------------
+The external PyInstaller runtime hook has been removed.
+
+The Windows stdout/stderr compatibility guard is now entirely embedded at the
+top of app.py, before PySide6, engine, PyTorch, Demucs, or BS-RoFormer imports.
+
+This removes the build dependency on:
+  runtime_hooks/pyi_stream_fix.py
+
+The GitHub workflow no longer references the runtime_hooks folder, which makes
+browser-based repository uploads much more reliable.
+
+Expected installer:
+  AudioDNAStudioPro_Setup_1.4.0.exe
