@@ -301,13 +301,28 @@ class StemEngine:
         progress(5, "Loading BS‑RoFormer 0.1.5 inference engine…")
         try:
             import torch
+            from bs_roformer import DEFAULT_MODEL, ensure_model_assets
             from bs_roformer.inference import proc_folder
             device = "cuda:0" if torch.cuda.is_available() else "cpu"
+
+            # Verify and resolve the local checkpoint before inference, then
+            # pass both checkpoint and config explicitly. This prevents the
+            # inference CLI from entering its downloader path at runtime.
+            checkpoint = self.verify_roformer_checkpoint()
+            if not checkpoint.get("ok"):
+                raise EngineError(
+                    "BS-RoFormer checkpoint is missing or invalid. Use Diagnostics / Log -> "
+                    "Download / Verify AI Models or Import BS-RoFormer Checkpoint."
+                )
+            ckpt_path, config_path = ensure_model_assets(
+                DEFAULT_MODEL, models_dir=self.roformer_models
+            )
             progress(12, f"BS‑RoFormer running on {device.upper()}…")
             proc_folder([
                 "--input_folder", str(input_dir),
                 "--store_dir", str(store_dir),
-                "--models_dir", str(self.roformer_models),
+                "--model_path", str(ckpt_path),
+                "--config_path", str(config_path),
                 "--device", device,
             ])
         except SystemExit as exc:

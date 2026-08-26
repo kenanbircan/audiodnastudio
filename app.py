@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+# Defense-in-depth for PyInstaller --windowed builds.
+import os as _stdio_os
+import sys as _stdio_sys
+_STDIO_KEEP=[]
+def _ensure_stdio():
+    for _name,_mode in (("stdout","w"),("stderr","w"),("stdin","r")):
+        if getattr(_stdio_sys,_name) is None:
+            _f=open(_stdio_os.devnull,_mode,buffering=1 if "w" in _mode else -1,encoding="utf-8",errors="replace")
+            _STDIO_KEEP.append(_f)
+            setattr(_stdio_sys,_name,_f)
+_ensure_stdio()
+
 import os
 import sys
 import shutil
@@ -535,6 +547,10 @@ def format_ms(ms):
 
 
 def main():
+    import multiprocessing
+    multiprocessing.freeze_support()
+    _ensure_stdio()
+
     if "--self-check" in sys.argv:
         import json
         engine = StemEngine(APP_DIR)

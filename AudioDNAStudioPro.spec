@@ -33,7 +33,7 @@ a = Analysis(
     hiddenimports=sorted(set(hiddenimports)),
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=["runtime_hooks/pyi_stream_fix.py"],
     excludes=[],
     noarchive=False,
 )

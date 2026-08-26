@@ -99,3 +99,14 @@ Expected file: BS-Rofo-SW-Fixed.ckpt
 Expected size: 699,412,152 bytes
 Expected SHA-256: 24e7d35ee9c64415673d3fd33e06a67cac2c103c5df6267ba1576459c775916e
 Expected local path: %LOCALAPPDATA%\AudioDNAStudioPro\models\roformer\roformer-model-bs-roformer-sw-by-jarredou\BS-Rofo-SW-Fixed.ckpt
+
+
+V1.3 NONETYPE.WRITE / INFERENCE FIX
+------------------------------------
+- Adds a PyInstaller runtime hook that supplies devnull-backed stdin/stdout/stderr
+  before PyTorch, tqdm, Demucs or BS-RoFormer import.
+- Adds the same guard in app.py and multiprocessing.freeze_support().
+- BS-RoFormer inference now verifies/resolves the local checkpoint first and
+  passes --model_path and --config_path explicitly, so inference cannot silently
+  enter the checkpoint downloader.
+- Fixes: AttributeError: 'NoneType' object has no attribute 'write'.
