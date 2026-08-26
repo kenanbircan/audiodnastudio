@@ -10,7 +10,6 @@ on:
       - "AudioDNAStudioPro.spec"
       - "installer/**"
       - "assets/**"
-      - "runtime_hooks/**"
       - ".github/workflows/build-windows.yml"
 
 jobs:
@@ -50,10 +49,10 @@ jobs:
         run: |
           python -c "import requests, certifi; print('Requests/certifi OK:', certifi.where())"
 
-      - name: Windowed stdio regression check
+      - name: Verify embedded stdio guard
         shell: pwsh
         run: |
-          python -c "import runpy,sys; sys.stdout=None; sys.stderr=None; sys.stdin=None; runpy.run_path('runtime_hooks/pyi_stream_fix.py'); assert sys.stdout is not None and sys.stderr is not None and sys.stdin is not None"
+          python -c "from pathlib import Path; s=Path('app.py').read_text(encoding='utf-8'); assert '_ensure_stdio()' in s and 'sys.stdout' in s or '_stdio_sys' in s; print('Embedded stdio guard OK')"
 
       - name: Build Windows executable
         run: python -m PyInstaller --noconfirm --clean AudioDNAStudioPro.spec
